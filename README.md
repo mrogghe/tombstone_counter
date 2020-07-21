@@ -2,19 +2,17 @@
 ---
 ***NOTE***: 
 
-1). This is a new branch (dse6_gradle) that is designed to work with DSE version 6.0+. 
+1). This is a re-mavenized version of dse6_gradle with support for same versions and includes some minor typo corrections and updated instructions for compiling and executing.
+
+2). This is a new branch (dse6_gradle) that is designed to work with DSE version 6.0+. 
     
-2). The original branch (ossc3_dse5) was developed to only work with OSS C* 3.x versions, including compatible DSE 5.0.x and 5.1.x versions.
+3). The original branch (ossc3_dse5) was developed to only work with OSS C* 3.x versions, including compatible DSE 5.0.x and 5.1.x versions.
 
-3). Neither branch is designed working with older version of C* (version 2.x and before)
+4). Neither branch is designed working with older version of C* (version 2.x and before)
 
-In my test, the utility has been built with DSE 6.7.6 libraries and it has been tested working with all the following DSE and C* versions:
-* DSE 6.7.x (6.7.6)
-* DSE 6.0.x (6.0.10)
-* DSE 5.1.x (5.1.17)
-* DSE 5.0.x (5.0.14)
-* DDAC (5.1.16)
-* OSS C* 3.11.x (3.11.5)
+In my test, the utility has been built with DSE 6.7.8 libraries and it has been tested working with all the following DSE and C* versions:
+* DSE 6.7.x (6.7.8)
+* OSS C* 3.11.x (3.11.4)
 
 **IMPORTANT**: 
 
@@ -37,52 +35,50 @@ Estimated tombstone drop times:
 1510712640:         1
 ```
 
-In order to get the total amount of tombstones in the system for a Cassandra table, you have to sum the droppable tombstone counts for all time periods and then repeat the process for all SSTables for that Cassandra table. This process is a little bit cubersome and more importantly, it can't tell you the number of tombstones of different kinds. In lieu of this, I write a tool (as presented in this repository) to help find tombstone counts for a Cassandra table, both in total and at different category levels.
+In order to get the total amount of tombstones in the system for a Cassandra table, you have to sum the droppable tombstone counts for all time periods and then repeat the process for all SSTables for that Cassandra table. This process is a little bit cumbersome and more importantly, it can't tell you the number of tombstones of different kinds. In lieu of this, I write a tool (as presented in this repository) to help find tombstone counts for a Cassandra table, both in total and at different category levels.
 
 # Compiling the Tool
 
-This utility relies on C* library to work properly. The original branch (ossc3_dse5) uses OSS C* library from Maven central library, as per the following dependency specified in "pom.xml" file.
-```
-<dependency>
-   <groupId>org.apache.cassandra</groupId>
-   <artifactId>cassandra-all</artifactId>
-   <version>${cassandra.version}</version>
-</dependency>
-```
+This utility works with Apache OSS Cassandra as is.  mvn clean install or mvn clean package
 
-To use this tool against DSE 6.0+, the OSS C* library won't work and the DSE C* library is needed, which is NOT available on Maven central library. We need to add DSE C* library in a local repository, which is achieved by the following dependency setting in "build.gradle" file.
+To work with DSE Cassandra:
+
+Within the pom.xml, in the following section, change addClasspath to false
 
 ```
-dependencies {
-    // Maven central libraries
-    ... ... 
-
-    // Local DSE libraries
-    compile fileTree(dir: 'libs', include: '*.jar')
-}
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.1.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>false</addClasspath>
 ```
 
-Please **NOTE**:
-* 'libs' is a sub-directory under the project home directory (where build.gradle file is). Once the project is cloned, create this folder manually and copy all DSE C* library jar files in it. 
+This instruction causes the built MANIFEST to not contain any classpath information, allowing us to set that at execution time.
+
+Download the desired version of the DSE Cassandra database (not the driver, the database itself).  Unpack/install and locate the DSE Cassandra libraries.
+ 
 * The location of the DSE C* library jar files are in the following location:
   * For packaged installation: /usr/share/dse/cassandra/lib
   * For tarball installation: <tarball_install_home>/resources/cassandra/lib 
   
-***SIDE NOTE***: different DSE versions (e.g. 6.0.x vs. 6.7.x) may have differences regarding the list of availble libraries. The test that I've been doing is based on 6.7.x libraries. But the built utility has been tested working fine with many C* versions (see note in the beginning of this README). If you really want to be sure, you can simply rebuild this utility based on the matching DSE version. 
-  
+The location should have many jar files including one that looks similar to:  dse-db-all-6.7.8.jar
 
-Once the DSE library files are copied, run the following commands to generate the final jar file (tombstone-counter-1.0.jar).
-```
-gradle clean build
-```
-
+Note this directory path for next section.
 
 # Using the Tool
 
-To execute the program, run the following command (assuming under the same directory where the jar file is):
+To execute the program for Apache OSS Cassandra, run the following command (assuming under the same directory where the jar file is):
 ```
 java -cp tombstone_counter-1.0.jar com.castools.TombStoneCounter <options>
 ```
+To execute the program for DSE Cassandra, run the following command (assuming under the same directory where the jar file is) using the path from previous section:
+```
+java -cp "./tombstone_counter-1.0.jar:/usr/local/cassandra/dse-6.7.8/resources/cassandra/lib/*" com.castools.TombStoneCounter -d <options>
+```
+On Windows the : should be a ;
+
 The supported program options are as below.
 ```
 usage: TombStoneCounter [-d <arg>] [-h] [-o <arg>] [-sp]
@@ -100,7 +96,7 @@ If "-sp" option is specified, it will not display tombstone detail information o
 
 ## Output
 
-When running the tool with specified Cassanra table data directory ("-d") option, the tool will generate a tombstone statistics (csv) file that includes the tombstone count of various categories for each SSTable file. Meanwhile, it will also prints out more read-able information on the console output. Below is an example (against DSE 6.0.10):
+When running the tool with specified Cassandra table data directory ("-d") option, the tool will generate a tombstone statistics (csv) file that includes the tombstone count of various categories for each SSTable file. Meanwhile, it will also prints out more read-able information on the console output. Below is an example (against DSE 6.0.10):
 
 ```
 $ java -cp tombstone_counter-1.0.jar com.castools.TombStoneCounter -d test.bkup.6010/testbl-fa44b341176a11eaa91a83381c121464/

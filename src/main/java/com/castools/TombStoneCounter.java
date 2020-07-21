@@ -16,15 +16,10 @@ import java.io.*;
 
 import java.util.*;
 
-/**
- * Hello world!
- *
- */
 public class TombStoneCounter
 {
     private static Options options = new Options();
     private static String OUTPUT_STATS_FILENAME = "tombstone_stats";
-    private static int PROGRESS_BAR_BY_PART_CNT = 2000;
 
     static {
         DatabaseDescriptor.clientInitialization(false);
@@ -81,7 +76,6 @@ public class TombStoneCounter
         }
 
         File ssTableFolder = new File(ssTableFolderName);
-        //System.out.println("Cassandra Table Folder: " + ssTableFolder.getAbsolutePath());
         if (!ssTableFolder.exists() || ! ssTableFolder.isDirectory() ) {
             System.out.println("\nError: Specified Cassandra data folder name neither exists, nor is a valid directory.");
             System.exit(-20);
@@ -93,8 +87,11 @@ public class TombStoneCounter
         }
 
         File outputStatsFile = new File(outputStatsFileName);
-        //System.out.println("Tombstone stats output file: " + outputStatsFile.getAbsolutePath());
         try {
+            if (outputStatsFile.exists()) {
+                outputStatsFile.delete();
+            }
+
             boolean statsFileCreated = outputStatsFile.createNewFile();
 
             if ( !statsFileCreated ) {
@@ -126,12 +123,10 @@ public class TombStoneCounter
             }
         );
 
-
         if ( (ssTableDataFiles == null) || (ssTableDataFiles.length < 1) ) {
             System.out.println("\nError: Either can't read the specified directory or there are no SSTable files under it.");
             System.exit(-60);
         }
-
 
         FileWriter fw = null;
         PrintWriter pw = null;
@@ -139,7 +134,6 @@ public class TombStoneCounter
             fw = new FileWriter(outputStatsFile.getAbsolutePath(),  true);
             pw = new PrintWriter(new BufferedWriter(fw));
 
-            // pw.println("sstable_data_file,part_cnt,row_cnt,total_ts_cnt,ts_part_cnt,ts_range_cnt,ts_complexcol_cnt,ts_row_del_cnt,ts_row_ttl_cnt,ts_cell_del_cnt,ts_cell_ttl_cnt");
             pw.println("sstable_data_file,part_cnt,total_ts_cnt,ts_part_cnt,ts_range_cnt,ts_complexcol_cnt,ts_row_del_cnt,ts_row_ttl_cnt,ts_cell_del_cnt,ts_cell_ttl_cnt");
         }
         catch (IOException ioe) {
@@ -148,9 +142,7 @@ public class TombStoneCounter
             System.exit(-70);
         }
 
-
         // Go through each SSTable data file for tombstone
-
         System.out.println("\nProcessing SSTable data files under directory: "  + ssTableFolderName);
         System.out.println("\n  ------------------------------------------------------------------------");
         System.out.println("  (scanning files, it may take long time to finish for large size of data)");
@@ -180,10 +172,6 @@ public class TombStoneCounter
 
             // total partition count
             long totalPartitionCnt = 0;
-            // total row count
-            //long totalRowCnt = 0;
-            // total cell count
-            //long totalCellCnt = 0;
 
             Descriptor descriptor = Descriptor.fromFilename(fileName);
 
@@ -219,7 +207,6 @@ public class TombStoneCounter
 
                     while (partition.hasNext()) {
                         Unfiltered unfiltered = partition.next();
-                        //totalRowCnt++;
 
                         switch (unfiltered.kind()) {
                             case ROW:
@@ -235,10 +222,7 @@ public class TombStoneCounter
                                     rowTTLedCnt++;
                                 }
 
-                                //System.out.println(row.primaryKeyLivenessInfo().toString());
-
                                 for (Cell cell : row.cells()) {
-                                    //totalCellCnt++;
 
                                     if (cell.isTombstone()) {
                                         totalTombstoneCnt++;
@@ -291,16 +275,15 @@ public class TombStoneCounter
                     }
                     */
 
-                    //System.out.println("      Total partition/row count: " + totalPartitionCnt + "/" + totalRowCnt);
                     System.out.println("      Total partition: " + totalPartitionCnt );
-                    System.out.println("      Tomstone Count (Total): " + totalTombstoneCnt);
-                    System.out.println("      Tomstone Count (Partition): " + partTombstoneCnt);
-                    System.out.println("      Tomstone Count (Range): " + rangeTombstoneCnt);
-                    System.out.println("      Tomstone Count (ComplexColumn): " + complexColTombstoneCnt);
-                    System.out.println("      Tomstone Count (Row) - Deletion: " + rowTombstoneCnt);
-                    System.out.println("      Tomstone Count (Row) - TTL: " + rowTTLedCnt);
-                    System.out.println("      Tomstone Count (Cell) - Deletion: " + cellTombstoneCnt);
-                    System.out.println("      Tomstone Count (Cell) - TTL: " + cellTTLedCnt);
+                    System.out.println("      Tombstone Count (Total): " + totalTombstoneCnt);
+                    System.out.println("      Tombstone Count (Partition): " + partTombstoneCnt);
+                    System.out.println("      Tombstone Count (Range): " + rangeTombstoneCnt);
+                    System.out.println("      Tombstone Count (ComplexColumn): " + complexColTombstoneCnt);
+                    System.out.println("      Tombstone Count (Row) - Deletion: " + rowTombstoneCnt);
+                    System.out.println("      Tombstone Count (Row) - TTL: " + rowTTLedCnt);
+                    System.out.println("      Tombstone Count (Cell) - Deletion: " + cellTombstoneCnt);
+                    System.out.println("      Tombstone Count (Cell) - TTL: " + cellTTLedCnt);
                 }
             }
             catch (Exception ex) {
@@ -317,12 +300,9 @@ public class TombStoneCounter
             //        for the active live partitions. It is not about the total number of rows
             //        within the SSTable, including both active live partitions and deleted
             //        partitions.
-
-            //pw.printf("%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
             pw.printf("%s,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
                 file.getName(),
                 totalPartitionCnt,
-                //totalRowCnt,
                 totalTombstoneCnt,
                 partTombstoneCnt,
                 rangeTombstoneCnt,
